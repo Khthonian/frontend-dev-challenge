@@ -14,10 +14,17 @@ export default function Layout({ children }: Props) {
           <Image src="/logo.svg" alt="DFDS logo" width={56} height={18} />
         </div>
       </nav>
-      <main className="mx-auto flex w-full max-w-screen-xl items-center justify-center px-2">
-        <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
-        </NextThemesProvider>
+      <main className="mx-auto w-full max-w-screen-xl px-2">
+        {/* Container for left-aligned content */}
+        <div className="mb-4 text-left">
+          <NextThemesProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+          >
+            {children}
+          </NextThemesProvider>
+        </div>
       </main>
     </>
   );
