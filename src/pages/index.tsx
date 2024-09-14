@@ -1,12 +1,7 @@
-import {
-  InvalidateQueryFilters,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { format } from "date-fns";
-import Head from "next/head";
-import Layout from "~/components/layout";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchData } from "~/utils";
+import { toast } from "~/components/ui/use-toast";
+import { Button } from "~/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,87 +10,104 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { fetchData } from "~/utils";
-import type { ReturnType } from "./api/voyage/getAll";
-import { Button } from "~/components/ui/button";
-import { TABLE_DATE_FORMAT } from "~/constants";
+import Layout from "~/components/layout";
+import CreateVoyageSheet from "~/components/CreateVoyageSheet";
 
+// Home component
 export default function Home() {
-  const { data: voyages } = useQuery<ReturnType>({
+  const {
+    data: voyages,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["voyages"],
-
     queryFn: () => fetchData("voyage/getAll"),
   });
 
+  // Initialise the QueryClient for refreshing data after a mutation
   const queryClient = useQueryClient();
+
+  // Define the mutation for creating a new voyage
   const mutation = useMutation({
-    mutationFn: async (voyageId: string) => {
-      const response = await fetch(`/api/voyage/delete?id=${voyageId}`, {
-        method: "DELETE",
+    mutationFn: async (newVoyage) => {
+      const response = await fetch(`/api/voyage/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newVoyage),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete the voyage");
+        throw new Error("Failed to create voyage");
       }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries([
-        "voyages",
-      ] as InvalidateQueryFilters);
+      // Invalidate and refetch voyages to reflect the new data
+      await queryClient.invalidateQueries("voyages");
+      // Show success toast message
+      toast({ title: "Success", description: "Voyage created successfully!" });
+    },
+    onError: (error) => {
+      // Show error toast message on failure
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  const handleDelete = (voyageId: string) => {
-    mutation.mutate(voyageId);
+  // Form submission handler for CreateVoyageSheet
+  const handleCreateVoyage = (data) => {
+    mutation.mutate(data);
   };
 
+  // Handle loading or error states
+  if (isLoading) {
+    return <div>Loading voyages...</div>;
+  }
+
+  if (isError) {
+    return <div>Failed to load voyages.</div>;
+  }
+
   return (
-    <>
-      <Head>
-        <title>Voyages | DFDS</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <Layout>
-        <Button variant="creation">Create</Button>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Departure</TableHead>
-              <TableHead>Arrival</TableHead>
-              <TableHead>Port of loading</TableHead>
-              <TableHead>Port of discharge</TableHead>
-              <TableHead>Vessel</TableHead>
-              <TableHead>&nbsp;</TableHead>
+    <Layout>
+      {/* Create button and form sheet */}
+      <CreateVoyageSheet onSubmit={handleCreateVoyage} />
+
+      {/* Table displaying voyages */}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Departure</TableHead>
+            <TableHead>Arrival</TableHead>
+            <TableHead>Port of loading</TableHead>
+            <TableHead>Port of discharge</TableHead>
+            <TableHead>Vessel</TableHead>
+            <TableHead>&nbsp;</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {voyages?.map((voyage) => (
+            <TableRow key={voyage.id}>
+              <TableCell>
+                {new Date(voyage.scheduledDeparture).toLocaleString()}
+              </TableCell>
+              <TableCell>
+                {new Date(voyage.scheduledArrival).toLocaleString()}
+              </TableCell>
+              <TableCell>{voyage.portOfLoading}</TableCell>
+              <TableCell>{voyage.portOfDischarge}</TableCell>
+              <TableCell>{voyage.vessel.name}</TableCell>
+              <TableCell>
+                <Button variant="outline">X</Button>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {voyages?.map((voyage) => (
-              <TableRow key={voyage.id}>
-                <TableCell>
-                  {format(
-                    new Date(voyage.scheduledDeparture),
-                    TABLE_DATE_FORMAT,
-                  )}
-                </TableCell>
-                <TableCell>
-                  {format(new Date(voyage.scheduledArrival), TABLE_DATE_FORMAT)}
-                </TableCell>
-                <TableCell>{voyage.portOfLoading}</TableCell>
-                <TableCell>{voyage.portOfDischarge}</TableCell>
-                <TableCell>{voyage.vessel.name}</TableCell>
-                <TableCell>
-                  <Button
-                    onClick={() => handleDelete(voyage.id)}
-                    variant="outline"
-                  >
-                    X
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Layout>
-    </>
+          ))}
+        </TableBody>
+      </Table>
+    </Layout>
   );
 }
