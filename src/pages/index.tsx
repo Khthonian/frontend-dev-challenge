@@ -13,21 +13,27 @@ import {
 import Layout from "~/components/layout";
 import CreateVoyageSheet from "~/components/CreateVoyageSheet";
 
-// Home component
 export default function Home() {
   const {
     data: voyages,
-    isLoading,
-    isError,
+    isLoading: isVoyagesLoading,
+    isError: isVoyagesError,
   } = useQuery({
     queryKey: ["voyages"],
     queryFn: () => fetchData("voyage/getAll"),
   });
 
-  // Initialise the QueryClient for refreshing data after a mutation
+  const {
+    data: unitTypes,
+    isLoading: isUnitTypesLoading,
+    isError: isUnitTypesError,
+  } = useQuery({
+    queryKey: ["unitTypes"],
+    queryFn: () => fetchData("unitType/getAll"),
+  });
+
   const queryClient = useQueryClient();
 
-  // Define the mutation for creating a new voyage
   const mutation = useMutation({
     mutationFn: async (newVoyage) => {
       const response = await fetch(`/api/voyage/create`, {
@@ -43,13 +49,10 @@ export default function Home() {
       }
     },
     onSuccess: async () => {
-      // Invalidate and refetch voyages to reflect the new data
-      await queryClient.invalidateQueries("voyages");
-      // Show success toast message
+      queryClient.invalidateQueries("voyages");
       toast({ title: "Success", description: "Voyage created successfully!" });
     },
     onError: (error) => {
-      // Show error toast message on failure
       toast({
         title: "Error",
         description: error.message,
@@ -58,24 +61,22 @@ export default function Home() {
     },
   });
 
-  // Form submission handler for CreateVoyageSheet
   const handleCreateVoyage = (data) => {
     mutation.mutate(data);
   };
 
-  // Handle loading or error states
-  if (isLoading) {
-    return <div>Loading voyages...</div>;
+  if (isVoyagesLoading || isUnitTypesLoading) {
+    return <div>Loading data...</div>;
   }
 
-  if (isError) {
-    return <div>Failed to load voyages.</div>;
+  if (isVoyagesError || isUnitTypesError) {
+    return <div>Failed to load data.</div>;
   }
 
   return (
     <Layout>
-      {/* Create button and form sheet */}
-      <CreateVoyageSheet onSubmit={handleCreateVoyage} />
+      {/* Pass unitTypes as props to CreateVoyageSheet */}
+      <CreateVoyageSheet onSubmit={handleCreateVoyage} unitTypes={unitTypes} />
 
       {/* Table displaying voyages */}
       <Table>
