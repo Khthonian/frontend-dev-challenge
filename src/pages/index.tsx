@@ -1,3 +1,6 @@
+// pages/index.tsx
+
+import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchData } from "~/utils";
 import { toast } from "~/components/ui/use-toast";
@@ -13,30 +16,38 @@ import {
 import Layout from "~/components/layout";
 import CreateVoyageSheet from "~/components/CreateVoyageSheet";
 import UnitTypesPopover from "~/components/UnitTypesPopover";
+import { Voyage, Vessel, UnitType } from "@prisma/client";
+
+type VoyageWithDetails = Voyage & {
+  vessel: Vessel;
+  unitTypes: UnitType[];
+};
 
 export default function Home() {
+  const queryClient = useQueryClient();
+
   const {
     data: voyages,
     isLoading: isVoyagesLoading,
     isError: isVoyagesError,
-  } = useQuery({
+    error: voyagesError,
+  } = useQuery<VoyageWithDetails[]>({
     queryKey: ["voyages"],
-    queryFn: () => fetchData("voyage/getAll"),
+    queryFn: () => fetchData<VoyageWithDetails[]>("voyage/getAll"),
   });
 
   const {
     data: unitTypes,
     isLoading: isUnitTypesLoading,
     isError: isUnitTypesError,
-  } = useQuery({
+    error: unitTypesError,
+  } = useQuery<UnitType[]>({
     queryKey: ["unitTypes"],
-    queryFn: () => fetchData("unitType/getAll"),
+    queryFn: () => fetchData<UnitType[]>("unitType/getAll"),
   });
 
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: async (newVoyage) => {
+  const createMutation = useMutation({
+    mutationFn: async (newVoyage: any) => {
       const response = await fetch(`/api/voyage/create`, {
         method: "POST",
         headers: {
@@ -46,24 +57,52 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create voyage");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create voyage");
       }
     },
-    onSuccess: async () => {
-      queryClient.invalidateQueries("voyages");
+    onSuccess: () => {
+      queryClient.invalidateQueries(["voyages"]);
       toast({ title: "Success", description: "Voyage created successfully!" });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create voyage",
         variant: "destructive",
       });
     },
   });
 
-  const handleCreateVoyage = (data) => {
-    mutation.mutate(data);
+  const handleCreateVoyage = (data: any) => {
+    createMutation.mutate(data);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (voyageId: string) => {
+      const response = await fetch(`/api/voyage/delete?id=${voyageId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete voyage`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["voyages"]);
+      toast({ title: "Success", description: "Voyage deleted successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete voyage",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteVoyage = (voyageId: string) => {
+    deleteMutation.mutate(voyageId);
   };
 
   if (isVoyagesLoading || isUnitTypesLoading) {
@@ -71,6 +110,7 @@ export default function Home() {
   }
 
   if (isVoyagesError || isUnitTypesError) {
+    console.error("Error fetching data:", voyagesError || unitTypesError);
     return <div>Failed to load data.</div>;
   }
 
@@ -85,8 +125,8 @@ export default function Home() {
           <TableRow>
             <TableHead>Departure</TableHead>
             <TableHead>Arrival</TableHead>
-            <TableHead>Port of loading</TableHead>
-            <TableHead>Port of discharge</TableHead>
+            <TableHead>Port of Loading</TableHead>
+            <TableHead>Port of Discharge</TableHead>
             <TableHead>Vessel</TableHead>
             <TableHead>Unit Types</TableHead>
             <TableHead>&nbsp;</TableHead>
@@ -108,7 +148,13 @@ export default function Home() {
                 <UnitTypesPopover unitTypes={voyage.unitTypes} />
               </TableCell>
               <TableCell>
-                <Button variant="outline">X</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleDeleteVoyage(voyage.id)}
+                  disabled={deleteMutation.isLoading}
+                >
+                  X
+                </Button>
               </TableCell>
             </TableRow>
           ))}
