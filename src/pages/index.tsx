@@ -12,6 +12,7 @@ import {
 } from "~/components/ui/table";
 import Layout from "~/components/layout";
 import CreateVoyageSheet from "~/components/CreateVoyageSheet";
+import UnitTypesPopover from "~/components/UnitTypesPopover";
 
 export default function Home() {
   const {
@@ -87,6 +88,7 @@ export default function Home() {
             <TableHead>Port of loading</TableHead>
             <TableHead>Port of discharge</TableHead>
             <TableHead>Vessel</TableHead>
+            <TableHead>Unit Types</TableHead>
             <TableHead>&nbsp;</TableHead>
           </TableRow>
         </TableHeader>
@@ -102,6 +104,9 @@ export default function Home() {
               <TableCell>{voyage.portOfLoading}</TableCell>
               <TableCell>{voyage.portOfDischarge}</TableCell>
               <TableCell>{voyage.vessel.name}</TableCell>
+              <TableCell>
+                <UnitTypesPopover unitTypes={voyage.unitTypes} />
+              </TableCell>
               <TableCell>
                 <Button variant="outline">X</Button>
               </TableCell>
